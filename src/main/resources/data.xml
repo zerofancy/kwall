@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
-<root>
-    <config ID="picPath">./pics</config>
-    <config ID="command">echo $pic</config>
-</root>
+<data>
+    <item>./pics/test.png</item>
+</data>
