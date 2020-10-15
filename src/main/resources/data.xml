@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <data>
+    <!--实际上应该为绝对路径-->
     <item>./pics/test.jpg</item>
 </data>

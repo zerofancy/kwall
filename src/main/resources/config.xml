@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <config>
+    <!--存放壁纸的文件夹-->
     <item ID="picPath">./pics</item>
+    <!--设置壁纸的命令-->
     <item ID="command">echo $pic</item>
+    <!--文件类型过滤-->
+    <item ID="type">jpg|jpeg|png</item>
 </config>
