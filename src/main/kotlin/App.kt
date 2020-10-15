@@ -1,13 +1,13 @@
 package top.ntutn
 
 import org.dom4j.Document
-import org.dom4j.Element
 import org.dom4j.tree.DefaultDocument
 import org.dom4j.tree.DefaultElement
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
-import javax.print.Doc
+
 
 fun main() {
     println("随机更换一张pics中的壁纸。")
@@ -16,26 +16,38 @@ fun main() {
     if (!fileConfig.exists()) {
         println("未找到配置文件。第一次启动？")
         println("尝试释放配置文件。")
-        ResourceUtil.getPicDictory().mkdir()
-        ResourceUtil.copyResourceTo("/config.xml", ResourceUtil.getConfigFileString())
-        ResourceUtil.copyResourceTo("/data.xml", ResourceUtil.getAbsolutePath(relative = "./data.xml"))
-        ResourceUtil.copyResourceTo("/test.jpg", ResourceUtil.getAbsolutePath(relative = "./pics/test.jpg"))
+        PicUtil.getPicDirectory().mkdir()
+        PicUtil.copyResourceTo("/config.xml", PicUtil.getConfigFileString())
+        PicUtil.copyResourceTo("/data.xml", PicUtil.getDataFileString())
+        PicUtil.copyResourceTo("/test.jpg", PicUtil.getTestFileString())
+    }
+
+    // 读取配置文件
+    val documentConfig =
+        XMLUtil.readXMLDocument(PicUtil.getConfigFileString())
+            ?: DefaultDocument(DefaultElement("config"))
+    documentConfig.elementByID("picPath")?.textTrim?.let {
+        PicUtil.relativePicPathString = it
+    }
+    documentConfig.elementByID("command")?.textTrim?.let {
+        PicUtil.command = it
     }
 
     // 读取data.xml，若为空，则重新遍历计算。若遍历结果空，do nothing
-    var document = XMLUtil.readXMLDocument(ResourceUtil.getAbsolutePath(relative = "./data.xml"))
+    val documentData =
+        XMLUtil.readXMLDocument(PicUtil.getDataFileString())
+            ?: DefaultDocument(DefaultElement("data"))
     val allPics = mutableListOf<String>()
-    document = document ?: DefaultDocument(DefaultElement("data"))
-    document.rootElement?.elements()?.forEach {
+    documentData.rootElement?.elements()?.forEach {
         allPics.add(it.textTrim)
     }
 
     if (allPics.isEmpty()) {
         println("缓存列表为空，重新扫描图片文件夹。")
         allPics.addAll(
-                getAllChildrenFiles(File(ResourceUtil.getCurrentPath(), "./pics")).map {
-                    it.canonicalPath
-                }
+            getAllChildrenFiles(PicUtil.getPicDirectory()).map {
+                it.canonicalPath
+            }
         )
     }
     if (allPics.isEmpty()) {
@@ -52,7 +64,7 @@ fun main() {
     while (!(randomFile.isFile && randomFile.exists())) {
         if (allPics.isEmpty()) {
             //保存空结果，重新执行
-            saveResult(document, allPics)
+            saveResult(documentData, allPics)
             main()
             return
         }
@@ -60,8 +72,10 @@ fun main() {
         allPics -= randomFileString
         randomFile = File(randomFileString)
     }
-    println("最终取到的文件是$randomFileString")
-    saveResult(document, allPics)
+
+    println("最终取到的文件是$randomFileString，准备设置壁纸……")
+    PicUtil.setWallPicture(randomFileString)
+    saveResult(documentData, allPics)
 }
 
 fun saveResult(document: Document, allPics: MutableList<String>) {
@@ -69,7 +83,7 @@ fun saveResult(document: Document, allPics: MutableList<String>) {
     allPics.forEach {
         document.rootElement.add(DefaultElement("item").apply { text = it })
     }
-    XMLUtil.writeXMLDocument(document, File(ResourceUtil.getAbsolutePath(relative = "./data.xml")))
+    XMLUtil.writeXMLDocument(document, PicUtil.getDataFile())
 }
 
 fun getAllChildrenFiles(rootFile: File): Array<File> {
@@ -87,23 +101,32 @@ fun getAllChildrenFiles(rootFile: File): Array<File> {
     return res
 }
 
-object ResourceUtil {
+object PicUtil {
+
+    var relativePicPathString = "./pics"
+    var command = "echo \$pic"
+
     /**
      * 获取当前路径
      */
-    fun getCurrentPath() = System.getProperty("user.dir");
+    private fun getCurrentPath(): String = System.getProperty("user.dir")
 
     /**
      * 获取绝对路径
      * @param currentPath 父文件夹路径
      * @param relative 相对路径
      */
-    fun getAbsolutePath(currentPath: String? = null, relative: String) = File(currentPath
-            ?: getCurrentPath(), relative).canonicalPath
+    private fun getAbsolutePath(currentPath: String? = null, relative: String): String = File(
+        currentPath
+            ?: getCurrentPath(), relative
+    ).canonicalPath
 
-    fun getPicDictory()=File(getCurrentPath(), "./pics")
+    fun getConfigFileString() = getAbsolutePath(relative = "./config.xml")
+    fun getDataFileString() = getAbsolutePath(relative = "./data.xml")
+    fun getTestFileString() = getAbsolutePath(relative = "./pics/test.jpg")
 
-    fun getConfigFileString()= getAbsolutePath(relative = "./config.xml")
+    fun getPicDirectory() = File(getCurrentPath(), relativePicPathString)
+    fun getDataFile() = File(getDataFileString())
 
     /**
      * 将资源文件复制到指定位置
@@ -121,6 +144,20 @@ object ResourceUtil {
                 is FileAlreadyExistsException, is java.nio.file.FileAlreadyExistsException ->
                     println("文件${to}已经存在了。")
             }
+        }
+    }
+
+    /**
+     * 设置壁纸
+     * @param url
+     */
+    fun setWallPicture(url: String) {
+        try {
+            val finalCommand = command.replace("\$pic", url)
+            println("执行命令$finalCommand")
+            Runtime.getRuntime().exec(finalCommand)
+        } catch (e: IOException) {
+            System.err.println("设置壁纸失败：$e")
         }
     }
 }
