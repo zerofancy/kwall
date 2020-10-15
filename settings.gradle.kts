@@ -1,2 +1,2 @@
-rootProject.name = "kmdblog"
+rootProject.name = "kwall"
 
